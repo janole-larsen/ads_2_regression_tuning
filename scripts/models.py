@@ -4,6 +4,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.pipeline import Pipeline
+import shap
 
 class Winsorizer(BaseEstimator, TransformerMixin):
     """
@@ -240,11 +241,15 @@ def plot_parameter_interactions(df, col_mae, col_mae_std, view="model"):
     cols_to_use = [col for col in df.columns if (filter_str in col) or (col in [col_mae, col_mae_std])]
     df_subset = df[cols_to_use].copy()
 
-    # 1. Heatmap: Plot der numerischen Spalten
+        # 1. Heatmap: Plot der numerischen Spalten
     num_cols = df_subset.select_dtypes(include=[np.number])
     if not num_cols.empty:
-        # Kürze die Spaltennamen: Entferne filter_str, sofern vorhanden.
-        num_cols_renamed = num_cols.rename(columns=lambda x: x.replace(filter_str, "") if filter_str in x else x)
+        # Kürze Spaltennamen: Entferne filter_str und nimm nur die letzten 15 Zeichen.
+        def shorten_col(x):
+            x_new = x.replace(filter_str, "") if filter_str in x else x
+            return x_new[-15:]
+        num_cols_renamed = num_cols.rename(columns=shorten_col)
+        
         plt.figure(figsize=(12, 6))
         sns.heatmap(num_cols_renamed.corr(), annot=True, cmap="coolwarm", fmt=".2f")
         plt.title(f"Korrelation zwischen numerischen {title_view} und {col_mae}, {col_mae_std}")
@@ -252,14 +257,13 @@ def plot_parameter_interactions(df, col_mae, col_mae_std, view="model"):
     else:
         print("Keine numerischen Spalten im gefilterten DataFrame gefunden.")
 
+
     # 2. Balkendiagramme: Für jede kategoriale Spalte (nicht numerisch und nicht Zielvariablen)
     cat_cols = [col for col in df_subset.columns 
                 if (not pd.api.types.is_numeric_dtype(df_subset[col])) and (col not in [col_mae, col_mae_std])]
     
     for col in cat_cols:
-        # Konvertiere alle Werte in der Spalte zu Strings, um Vergleichsprobleme zu vermeiden, und wandle in Kategorie um.
         df_subset[col] = df_subset[col].astype(str).astype("category")
-        # Gruppierung mit observed=False, um den FutureWarning zu vermeiden.
         group_stats = df_subset.groupby(col, observed=False).agg(
             mean_mae=(col_mae, "mean"),
             mean_std=(col_mae_std, "mean")
@@ -269,12 +273,16 @@ def plot_parameter_interactions(df, col_mae, col_mae_std, view="model"):
         short_name = col.replace(filter_str, "") if filter_str in col else col
         
         plt.figure(figsize=(6, 4))
-        # Verwende errorbar=None statt ci, um den Deprecation-Warning zu umgehen.
         sns.barplot(data=group_stats, x=col, y="mean_mae", errorbar=None)
         plt.errorbar(x=np.arange(len(group_stats)), y=group_stats["mean_mae"],
                      yerr=group_stats["mean_std"], fmt='none', c='black', capsize=5)
+        
+        # Kürze die Gruppennamen auf die ersten 10 Zeichen
+        current_labels = group_stats[col].astype(str).tolist()
+        short_labels = [label[:10] for label in current_labels]
+        plt.xticks(ticks=np.arange(len(short_labels)), labels=short_labels, rotation=45)
+        
         plt.title(f"Mean {col_mae} ± Mean {col_mae_std} pro Kategorie von {short_name} ({title_view})")
-        plt.xticks(rotation=45)
         plt.tight_layout()
         plt.show()
 
@@ -478,6 +486,8 @@ def get_top_records_per_model(results_dict: dict, top_n_per_model: int, kpi: str
         "std_test_R2": "R2_std_%",
         "mean_test_MAE": "MAE_mean",
         "std_test_MAE": "MAE_std",
+        "mean_test_MedAE": "MedAE_mean", 
+        "std_test_MedAE": "MedAE_std",
         #"split0_test_MAE": "MAE_0",
         #"split1_test_MAE": "MAE_1",
         #"split2_test_MAE": "MAE_2",
@@ -486,11 +496,11 @@ def get_top_records_per_model(results_dict: dict, top_n_per_model: int, kpi: str
     }
     
     sort_col = f"{kpi}_mean"
-    if kpi.upper() == "MAE":
-        ascending = True  # Bei MAE: niedrigste (absolute) Fehler zuerst
+    if kpi.upper() in ["MAE", "MEDAE"]:
+        ascending = True  # Niedrigere Fehler sind besser
         sort_key = lambda x: x.abs()
     else:
-        ascending = False  # Bei R2: höchste Werte zuerst
+        ascending = False  # Bei R2: höhere Werte sind besser
         sort_key = None
 
     dfs = []
@@ -513,6 +523,8 @@ def get_top_records_per_model(results_dict: dict, top_n_per_model: int, kpi: str
         for col in top_df.columns:
             if col.startswith("MAE_"):
                 top_df[col] = top_df[col].abs()
+            if col.startswith("MedAE_"):
+                top_df[col] = top_df[col].abs()
             elif col.startswith("R2_"):
                 top_df[col] = top_df[col] * 100
         
@@ -528,3 +540,50 @@ def get_top_records_per_model(results_dict: dict, top_n_per_model: int, kpi: str
         dfs.append(top_df)
     
     return pd.concat(dfs, ignore_index=True)
+
+
+
+def plot_save_shap(params, X_train, y_train, X_test, full_pipeline, path_save_graph,
+                   nsamples=100, background_size=100):
+    """
+    Setzt die Pipeline-Parameter, trainiert das Modell, berechnet SHAP-Werte,
+    formatiert die x-Achse wissenschaftlich (mit wissenschaftlicher Notation) und speichert den SHAP Summary-Plot.
+
+    Args:
+      params (dict): Beste Modellparameter (z.B. dict_best_params["KNN"])
+      X_train (pd.DataFrame): Trainingsdaten
+      y_train (pd.Series): Zielwerte der Trainingsdaten
+      X_test (pd.DataFrame): Testdaten für die SHAP-Analyse
+      full_pipeline: Die gesamte Pipeline
+      path_save_graph (str): Pfad inkl. Dateiname zum Speichern des Plots
+      nsamples (int, optional): Anzahl Samples für SHAP-Berechnung (Default=100)
+      background_size (int, optional): Größe des Hintergrund-Datensatzes (Default=100)
+    """
+    # Pipeline konfigurieren und trainieren
+    full_pipeline.set_params(**params)
+    full_pipeline.fit(X_train, y_train)
+    
+    # Hintergrund-Datensatz wählen
+    background = X_train.sample(background_size, random_state=42)
+    
+    # Wrapper-Funktion, um sicherzustellen, dass der Input als DataFrame vorliegt
+    def predict_wrapper(X):
+        if isinstance(X, np.ndarray):
+            X = pd.DataFrame(X, columns=X_train.columns)
+        return full_pipeline.predict(X)
+    
+    # SHAP KernelExplainer initialisieren und SHAP-Werte berechnen
+    explainer = shap.KernelExplainer(predict_wrapper, background)
+    shap_values = explainer.shap_values(X_test, nsamples=nsamples)
+    
+    # SHAP Summary-Plot erstellen, aber nicht direkt anzeigen
+    shap.summary_plot(shap_values, X_test, show=False)
+    
+    # x-Achse wissenschaftlich skalieren (wissenschaftliche Notation)
+    ax = plt.gca()
+    ax.ticklabel_format(style='sci', axis='x', scilimits=(0,0))
+    
+    # Plot speichern
+    plt.savefig(path_save_graph, bbox_inches='tight')
+    plt.show()
+    plt.close()

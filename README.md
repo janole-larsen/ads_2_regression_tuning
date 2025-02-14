@@ -24,7 +24,7 @@ Dabei liegt besonders die EDA, Pipelineerstellung sowie Hyperparameteroptimierun
 
 - **Ergebnisdarstellung**
   - Visualisierung der Vorhersagen (Residualplots, Scatterplots, Lernkurven)
-  - Aggregation von Ergebnissen zu KPIs (z.B. MAE, R²)
+  - Aggregation von Ergebnissen zu KPIs (z.B. MedAE, MAE, R²)
 
 ---
 
@@ -63,7 +63,7 @@ Dabei liegt besonders die EDA, Pipelineerstellung sowie Hyperparameteroptimierun
   Starte `02_MODELS.ipynb` für:
   - Preprocessing und Pipeline-Aufbau
   - Modelltraining mit Hyperparameteroptimierung und Kreuzvalidierung
-  - Darstellung der Prognoseergebnisse und Modellleistungen (inkl. KPI-Aggregation MAE, R2)
+  - Darstellung der Prognoseergebnisse und Modellleistungen (inkl. KPI-Aggregation MedAE, MAE, R2)
 
 - **Reproduzierbarkeit**
 Das Projekt ist komplett reproduzierbar, da alle Skripte und Pipelines feste Random States, vordefinierte Parameterräume sowie klar strukturierte und dokumentierte Verarbeitungs- und Modellierungsschritte verwenden. Zudem sorgen ein versioniertes Git-Repository und eine Docker-Umgebung dafür, dass alle Abhängigkeiten und Umgebungsvariablen dokumentiert und konstant bleiben.

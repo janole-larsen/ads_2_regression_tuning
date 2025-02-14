@@ -1,4 +1,4 @@
-Regressor,R2_mean_%,R2_std_%,MAE_mean,MAE_std
-ElasticNet,57,4,60134,1724
-KNN,72,4,49169,1574
-DecisionTree,67,3,53041,1049
+Regressor,R2_mean_%,R2_std_%,MAE_mean,MAE_std,MedAE_mean,MedAE_std
+ElasticNet,58,4,60527,2151,43232,1509
+KNN,71,4,49448,1119,34029,921
+DecisionTree,61,4,54203,1200,35563,899

@@ -1,8 +1,10 @@
 # Input-Daten (falls CSVs versioniert werden sollen, Kommentar entfernen, ansonsten aktivieren)
 # input/
 
-# Output-Verzeichnis (generierte Dateien, nicht versionieren, da reproduzierbar)
-output/
+# Output-Verzeichnis
+#   PandasReport
+output/*.html 
+
 
 # Python-Cache
 __pycache__/

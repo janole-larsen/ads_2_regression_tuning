@@ -1,0 +1,4 @@
+Regressor,R2_mean_%,R2_std_%,MAE_mean,MAE_std
+ElasticNet,57,4,60134,1724
+KNN,72,4,49169,1574
+DecisionTree,67,3,53041,1049

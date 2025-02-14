@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: ./dockerfile
+    image: image_scikit_v16
+    container_name: immoverse_42
+    working_dir: /workspace
+    volumes:
+      - "C:/Users/janol/Documents/Code/ads2_property_sales:/workspace"
+    tty: true

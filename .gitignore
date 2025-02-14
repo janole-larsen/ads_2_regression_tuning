@@ -1,0 +1,24 @@
+# Config
+config/credentials.json
+
+# Input
+#input/
+
+# Python-Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints/
+
+# VSCode-Settings
+.vscode/
+
+# Logfiles und Debugging-Dateien
+logs/
+*.log
+
+# .env
+.env

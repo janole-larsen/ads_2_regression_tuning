@@ -1,8 +1,8 @@
-# Config
-config/credentials.json
+# Input-Daten (falls CSVs versioniert werden sollen, Kommentar entfernen, ansonsten aktivieren)
+# input/
 
-# Input
-#input/
+# Output-Verzeichnis (generierte Dateien, nicht versionieren, da reproduzierbar)
+output/
 
 # Python-Cache
 __pycache__/
@@ -13,12 +13,12 @@ __pycache__/
 # Jupyter Notebook Checkpoints
 .ipynb_checkpoints/
 
-# VSCode-Settings
+# VSCode-Einstellungen
 .vscode/
 
 # Logfiles und Debugging-Dateien
 logs/
 *.log
 
-# .env
+# Umgebungsvariablen
 .env

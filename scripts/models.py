@@ -436,8 +436,7 @@ def plot_learning_curve_r2(dict_result_rndm, sort_ascending=True, smooth=True, w
         else:
             ax.errorbar(x, y, yerr=yerr, fmt='o-', capsize=3, label='R²')
         
-        sort_text = "schlecht -> gut" if sort_ascending else "gut -> schlecht"
-        ax.set_xlabel(f"Sortierte Iterationen ({sort_text})")
+        ax.set_xlabel(f"Sortierte Iterationen")
         ax.set_title(f"{model_name}\nLernkurve R²")
         ax.set_ylim(global_min, global_max)
         ax.legend()

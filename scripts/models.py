@@ -4,6 +4,8 @@ from sklearn.base import BaseEstimator, TransformerMixin
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.pipeline import Pipeline
+from sklearn.model_selection import KFold, cross_validate, train_test_split
+from sklearn.metrics import mean_absolute_error, median_absolute_error, r2_score
 import shap
 
 class Winsorizer(BaseEstimator, TransformerMixin):
@@ -587,3 +589,89 @@ def plot_save_shap(params, X_train, y_train, X_test, full_pipeline, path_save_gr
     plt.savefig(path_save_graph, bbox_inches='tight')
     plt.show()
     plt.close()
+
+
+def evaluate_models_new_data(dict_best_params, full_pipeline, X, y, X_2022, y_2022, RANDOM_STATE):
+    """
+    Führt eine 5-fache Cross-Validation auf einem Trainingssplit der Daten (X, y) durch und evaluiert
+    anschließend das finale Modell auf den neuen Daten (X_2022, y_2022).
+    
+    Zunächst wird X, y in einen Trainings- und Testsplit aufgeteilt, wobei mit Hilfe von stratify=X['PropType']
+    sichergestellt wird, dass die Verteilung der 'PropType'-Eigenschaft in beiden Splits erhalten bleibt.
+    
+    Dabei werden alle Preprocessing-Schritte (z. B. Feature Engineering, Imputation, Skalierung,
+    Encoding, PCA etc.) der Pipeline auch auf die neuen Daten angewendet.
+    
+    Parameter:
+      - dict_best_params: Dictionary, das für jedes Modell die besten Parameter enthält.
+      - full_pipeline: Die komplette Pipeline (Preprocessing und Modellierung).
+      - X: Feature-Matrix der Originaldaten (z. B. 2023/2024).
+      - y: Zielvariable der Originaldaten.
+      - X_2022: Feature-Matrix der neuen Daten (z. B. 2022).
+      - y_2022: Zielvariable der neuen Daten.
+      - RANDOM_STATE: Integer, der den Zufallsstatus für reproduzierbare Splits definiert.
+      
+    Rückgabe:
+      - results_df: DataFrame, der die Evaluierungsergebnisse (Durchschnittswerte und Standardabweichungen
+        der CV-Metriken sowie Ergebnisse für die neuen Daten) für jedes Modell enthält.
+    """
+    # Aufteilen in Trainings- und Testdaten unter Beibehaltung der Verteilung der 'PropType'-Eigenschaft
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=RANDOM_STATE, stratify=X['PropType']
+    )
+    
+    # Definiere die Cross-Validation-Strategie auf dem Trainingssplit
+    cv = KFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
+    
+    results = []
+    
+    for model, best_params in dict_best_params.items():
+        # Setze die besten Parameter in der Gesamt-Pipeline
+        full_pipeline.set_params(**best_params)
+        
+        # Führe Cross-Validation auf den Trainingsdaten (X_train, y_train) durch
+        cv_results = cross_validate(
+            full_pipeline, X_train, y_train,
+            cv=cv,
+            scoring={
+                'mae': 'neg_mean_absolute_error',
+                'medae': 'neg_median_absolute_error',
+                'r2': 'r2'
+            }
+        )
+        
+        # Berechne die durchschnittlichen Scores und Standardabweichungen
+        mean_mae = -cv_results['test_mae'].mean()
+        std_mae  = cv_results['test_mae'].std()
+        mean_medae = -cv_results['test_medae'].mean()
+        std_medae  = cv_results['test_medae'].std()
+        mean_r2 = cv_results['test_r2'].mean()
+        std_r2  = cv_results['test_r2'].std()
+        
+        # Trainiere die Pipeline auf den kompletten Trainingsdaten (X_train, y_train)
+        full_pipeline.fit(X_train, y_train)
+        
+        # Wende das finale Modell auf die neuen Daten (X_2022, y_2022) an
+        y_pred_2022 = full_pipeline.predict(X_2022)
+        mae_2022 = mean_absolute_error(y_2022, y_pred_2022)
+        medae_2022 = median_absolute_error(y_2022, y_pred_2022)
+        r2_2022 = r2_score(y_2022, y_pred_2022)
+        
+        # Speichere die Ergebnisse für das aktuelle Modell
+        results.append({
+            'model': model,
+            'cv_mae_mean': mean_mae,
+            'cv_mae_std': std_mae,
+            'cv_medae_mean': mean_medae,
+            'cv_medae_std': std_medae,
+            'cv_r2_mean': mean_r2,
+            'cv_r2_std': std_r2,
+            '2022_mae': mae_2022,
+            '2022_medae': medae_2022,
+            '2022_r2': r2_2022
+        })
+    
+    # Erstelle einen DataFrame mit den Ergebnissen
+    results_df = pd.DataFrame(results)
+    return results_df
+
